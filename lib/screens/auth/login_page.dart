@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,6 +18,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   bool _isLoading = false;
   late AnimationController _animationController;
   late Animation<double> _fadeInAnimation;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   void initState() {
@@ -45,19 +51,86 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     });
   }
 
-  void _simulateLogin() {
+  Future<void> _signInWithEmailPassword() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        await _auth.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } on FirebaseAuthException catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message ?? 'An error occurred'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
     setState(() {
       _isLoading = true;
     });
 
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential = 
+          await _auth.signInWithCredential(credential);
+
+      // Create/Update user document
+      await _firestore.collection('users').doc(userCredential.user!.email).set({
+        'email': userCredential.user!.email,
+        'name': userCredential.user!.displayName,
+        'photoUrl': userCredential.user!.photoURL,
+        'lastLogin': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
         Navigator.pushReplacementNamed(context, '/home');
       }
-    });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -172,9 +245,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                 ? const CircularProgressIndicator()
                                 : ElevatedButton(
                                     onPressed: () {
-                                      if (_formKey.currentState!.validate()) {
-                                        _simulateLogin();
-                                      }
+                                      _signInWithEmailPassword();
                                     },
                                     style: ElevatedButton.styleFrom(
                                       minimumSize: const Size(double.infinity, 56),
@@ -190,6 +261,75 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                           ],
                         ),
                       ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              color: Colors.grey.shade400,
+                              thickness: 1,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'Or continue with',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              color: Colors.grey.shade400,
+                              thickness: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                _signInWithGoogle();
+                              },
+                              icon: Image.network(
+                                'https://www.google.com/favicon.ico',
+                                height: 24,
+                              ),
+                              label: const Text('Google'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: BorderSide(color: Colors.grey.shade300),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                // Add Email sign in logic
+                              },
+                              icon: const Icon(Icons.email_outlined),
+                              label: const Text('Email'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: BorderSide(color: Colors.grey.shade300),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
                       const Spacer(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,

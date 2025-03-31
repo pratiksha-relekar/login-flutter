@@ -3,8 +3,14 @@ import 'screens/auth/login_page.dart';
 import 'screens/auth/signup_page.dart';
 import 'screens/welcome_page.dart';
 import 'screens/home_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -34,7 +40,7 @@ class MyApp extends StatelessWidget {
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.indigo,
+          seedColor: Colors.deepPurple,
           brightness: Brightness.light,
           primary: Colors.indigo,
           secondary: Colors.pinkAccent,

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -18,6 +21,9 @@ class _SignupPageState extends State<SignupPage> with SingleTickerProviderStateM
   bool _isLoading = false;
   late AnimationController _animationController;
   late Animation<double> _fadeInAnimation;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   void initState() {
@@ -56,19 +62,96 @@ class _SignupPageState extends State<SignupPage> with SingleTickerProviderStateM
     });
   }
 
-  void _simulateSignup() {
+  Future<void> _signUpWithEmailPassword() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final UserCredential userCredential = 
+            await _auth.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        // Create user document
+        await _firestore.collection('users').doc(userCredential.user!.email).set({
+          'email': _emailController.text.trim(),
+          'name': _nameController.text.trim(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastLogin': FieldValue.serverTimestamp(),
+        });
+
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } on FirebaseAuthException catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message ?? 'An error occurred'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _signUpWithGoogle() async {
     setState(() {
       _isLoading = true;
     });
 
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential = 
+          await _auth.signInWithCredential(credential);
+
+      // Create user document
+      await _firestore.collection('users').doc(userCredential.user!.email).set({
+        'email': userCredential.user!.email,
+        'name': userCredential.user!.displayName,
+        'photoUrl': userCredential.user!.photoURL,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
         Navigator.pushReplacementNamed(context, '/home');
       }
-    });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -217,9 +300,7 @@ class _SignupPageState extends State<SignupPage> with SingleTickerProviderStateM
                               ? const CircularProgressIndicator()
                               : ElevatedButton(
                                   onPressed: () {
-                                    if (_formKey.currentState!.validate()) {
-                                      _simulateSignup();
-                                    }
+                                    _signUpWithEmailPassword();
                                   },
                                   style: ElevatedButton.styleFrom(
                                     minimumSize: const Size(double.infinity, 56),
@@ -236,6 +317,74 @@ class _SignupPageState extends State<SignupPage> with SingleTickerProviderStateM
                       ),
                     ),
                     const SizedBox(height: 30),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: Colors.grey.shade400,
+                            thickness: 1,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'Or sign up with',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: Colors.grey.shade400,
+                            thickness: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              _signUpWithGoogle();
+                            },
+                            icon: Image.network(
+                              'https://www.google.com/favicon.ico',
+                              height: 24,
+                            ),
+                            label: const Text('Google'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              // Add Email sign up logic
+                            },
+                            icon: const Icon(Icons.email_outlined),
+                            label: const Text('Email'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
