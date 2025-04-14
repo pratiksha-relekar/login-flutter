@@ -3,14 +3,17 @@ import 'screens/auth/login_page.dart';
 import 'screens/auth/signup_page.dart';
 import 'screens/welcome_page.dart';
 import 'screens/home_page.dart';
+import 'screens/income_page.dart';
+import 'screens/expense_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'screens/home_page.dart';
+import 'package:login/screens/savings_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -21,7 +24,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Auth Demo',
+      title: 'Total Revenue Generator',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         // This is the theme of your application.
@@ -40,7 +43,7 @@ class MyApp extends StatelessWidget {
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: Colors.indigo,
           brightness: Brightness.light,
           primary: Colors.indigo,
           secondary: Colors.pinkAccent,
@@ -86,10 +89,28 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const WelcomePage(),
+        '/': (context) => StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            
+            if (snapshot.hasData && snapshot.data != null) {
+              return const HomePage();
+            }
+            
+            return const WelcomePage();
+          },
+        ),
         '/login': (context) => const LoginPage(),
         '/signup': (context) => const SignupPage(),
         '/home': (context) => const HomePage(),
+        '/income': (context) => const IncomePage(),
+        '/expense': (context) => const ExpensePage(),
+        '/savings': (context) => const SavingsPage(),
       },
     );
   }

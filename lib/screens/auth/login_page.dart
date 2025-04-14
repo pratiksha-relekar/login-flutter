@@ -165,7 +165,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       Hero(
                         tag: 'titleTag',
                         child: Text(
-                          'Welcome\nBack',
+                          'Welcome Back',
                           style: TextStyle(
                             fontSize: 34,
                             fontWeight: FontWeight.bold,
@@ -330,7 +330,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                         ],
                       ),
                       const SizedBox(height: 20),
-                      const Spacer(),
+                      //const Spacer(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

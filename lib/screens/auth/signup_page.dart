@@ -182,7 +182,7 @@ class _SignupPageState extends State<SignupPage> with SingleTickerProviderStateM
                     Hero(
                       tag: 'titleTag',
                       child: Text(
-                        'Create\nAccount',
+                        'Create Account',
                         style: TextStyle(
                           fontSize: 34,
                           fontWeight: FontWeight.bold,
